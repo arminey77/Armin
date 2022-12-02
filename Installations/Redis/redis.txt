@@ -1,0 +1,121 @@
+sudo apt update
+sudo apt install build-essential tcl
+
+cd /tmp
+curl -O http://download.redis.io/redis-stable.tar.gz
+tar xzvf redis-stable.tar.gz
+
+# make the source
+cd redis-stable
+make
+# to test
+make test
+
+sudo make install
+sudo mkdir /etc/redis
+sudo cp /tmp/redis-stable/redis.conf /etc/redis/redis-master.conf
+sudo cp /tmp/redis-stable/redis.conf /etc/redis/redis-slave.conf
+
+# edit configuration in /etc/redis/redis-master.conf
+supervised systemd
+bind 0.0.0.0
+protected-mode no
+appendonly yes
+cluster-enabled yes
+cluster-config-file /etc/redis/cluster/nodes-6379.conf
+cluster-node-timeout 5000
+dir /mnt/mongodb/redis/master/data
+logfile /mnt/mongodb/redis/master/log/redis-master.log
+requirepass <password>
+
+
+# edit configuration in /etc/redis/redis-slave.conf
+supervised systemd
+bind 0.0.0.0
+protected-mode no
+appendonly yes
+cluster-enabled yes
+cluster-config-file /etc/redis/cluster/nodes-7379.conf
+cluster-node-timeout 5000
+pidfile /var/run/redis_7379.pid
+dir /mnt/mongodb/redis/slave/data
+logfile /mnt/mongodb/redis/slave/log/redis-slave.log
+port 7379
+requirepass <password>
+
+# create /etc/systemd/system/redis-master.service for master service
+[Unit]
+Description=Redis Master In-Memory Data Store
+After=network.target
+
+[Service]
+User=redis
+Group=redis
+ExecStart=/usr/local/bin/redis-server /etc/redis/redis-master.conf
+ExecStop=/usr/local/bin/redis-cli -h localhost -p 6379 shutdown
+Restart=always
+
+[Install]
+WantedBy=multi-user.target
+
+
+# create /etc/systemd/system/redis-slave.service for slave service
+[Unit]
+Description=Redis Slave In-Memory Data Store
+After=network.target
+
+[Service]
+User=redis
+Group=redis
+ExecStart=/usr/local/bin/redis-server /etc/redis/redis-slave.conf
+ExecStop=/usr/local/bin/redis-cli -h localhost -p 7379 shutdown
+Restart=always
+
+[Install]
+WantedBy=multi-user.target
+
+# create redis user
+sudo adduser --system --group --no-create-home redis
+
+sudo mkdir -p /mnt/mongodb/redis/master/data
+sudo mkdir -p /mnt/mongodb/redis/master/log
+sudo mkdir -p /mnt/mongodb/redis/slave/data
+sudo mkdir -p /mnt/mongodb/redis/slave/log
+sudo chown -R redis:redis /mnt/mongodb/redis
+sudo chmod 770 /mnt/mongodb/redis
+sudo mkdir -p /etc/redis/cluster
+sudo chown -R redis:redis /etc/redis/cluster
+
+# open firewall ports
+sudo ufw allow proto tcp from any to any port 6379,16379,7379,17379
+
+sudo systemctl daemon-reload
+sudo systemctl enable redis-master
+sudo systemctl enable redis-slave
+sudo systemctl restart redis-master
+sudo systemctl restart redis-slave
+
+# now edit /etc/sysctl.conf and add
+vm.overcommit_memory = 1
+
+# now reboot for the sysctl config to take effect
+sudo reboot
+
+
+
+#######################################################
+after performing above operations on all servers cluster redis nodes as described below
+#######################################################
+
+# now create the cluster with one replica for each master (execute this only in one node)
+# only IPs are supported and using hostname will cause an error
+# after dry run, should accept cluster structure to take effect
+redis-cli --cluster create 172.18.245.27:6379 172.18.245.28:6379 172.18.245.29:6379 172.18.245.27:7379 172.18.245.28:7379 172.18.245.29:7379 --cluster-replicas 1
+
+# to check cluster status
+redis-cli (-h <hostname>)
+# then run this command and check number of connected_slaves:1 on each master
+info replication 
+# to get cluster info
+cluster info
+cluster nodes

@@ -1,0 +1,122 @@
+#install prometheus in management server
+#Create Prometheus Users on management node
+sudo useradd --no-create-home --shell /bin/false prometheus
+
+#Create Prometheus Directories
+sudo mkdir /etc/prometheus
+sudo mkdir /var/lib/prometheus
+
+#Downloading and Installing Prometheus (update proetheus version)
+wget https://github.com/prometheus/prometheus/releases/download/v2.25.0/prometheus-2.25.0.linux-amd64.tar.gz
+tar xvf prometheus-2.25.0.linux-amd64.tar.gz
+
+sudo cp prometheus-2.25.0.linux-amd64/prometheus /usr/local/bin/
+sudo cp prometheus-2.25.0.linux-amd64/promtool /usr/local/bin/
+
+sudo chown prometheus:prometheus /usr/local/bin/prometheus
+sudo chown prometheus:prometheus /usr/local/bin/promtool
+
+sudo cp -r prometheus-2.25.0.linux-amd64/consoles /etc/prometheus
+sudo cp -r prometheus-2.25.0.linux-amd64/console_libraries /etc/prometheus
+
+sudo chown -R prometheus:prometheus /etc/prometheus/consoles
+sudo chown -R prometheus:prometheus /etc/prometheus/console_libraries
+
+sudo chown -R prometheus:prometheus /var/lib/prometheus/
+
+#Prometheus Configuration
+#create /etc/prometheus/prometheus.yml and copy below line in this file
+global:
+  scrape_interval: 15s
+
+scrape_configs:
+  - job_name: 'prometheus'
+    scrape_interval: 5s
+    static_configs:
+      - targets: ['localhost:9090']
+	  
+#create systemd service for prometheus
+#create /etc/systemd/system/prometheus.service file and copy below line in this file
+[Unit]
+Description=Prometheus
+Wants=network-online.target
+After=network-online.target
+
+[Service]
+User=prometheus
+Group=prometheus
+Type=simple
+ExecStart=/usr/local/bin/prometheus \
+    --config.file /etc/prometheus/prometheus.yml \
+    --storage.tsdb.path /var/lib/prometheus/ \
+    --web.console.templates=/etc/prometheus/consoles \
+    --web.console.libraries=/etc/prometheus/console_libraries \
+    --storage.tsdb.retention.time=7d
+
+[Install]
+WantedBy=multi-user.target
+
+sudo systemctl daemon-reload
+sudo systemctl start prometheus
+sudo systemctl enable prometheus
+sudo systemctl status prometheus
+
+#install node_exporter in other server for monitoring
+#Create node exporter Users on other node
+sudo useradd --no-create-home --shell /bin/false node_exporter
+
+#Downloading and Installing node_exporter (update node_exporter version)
+wget https://github.com/prometheus/node_exporter/releases/download/v1.1.1/node_exporter-1.1.1.linux-amd64.tar.gz
+tar xvf node_exporter-1.1.1.linux-amd64.tar.gz
+
+sudo cp node_exporter-1.1.1.linux-amd64/node_exporter /usr/local/bin
+sudo chown node_exporter:node_exporter /usr/local/bin/node_exporter
+
+#create /etc/systemd/system/node_exporter.service file and copy below line in this file
+[Unit]
+Description=Prometheus Node Exporter
+Wants=network-online.target
+After=network-online.target
+
+[Service]
+User=node_exporter
+Group=node_exporter
+Type=simple
+ExecStart=/usr/local/bin/node_exporter --collector.cpu --collector.meminfo --collector.loadavg --collector.filesystem
+
+[Install]
+WantedBy=multi-user.target
+
+#for change Collectors section, change the ExecStart line in node_exporter service;
+#check this link for other collectors https://github.com/prometheus/node_exporter#collectors
+
+sudo systemctl daemon-reload
+sudo systemctl start node_exporter.service
+sudo systemctl enable node_exporter.service
+sudo systemctl status node_exporter.service
+
+#Add Node Exporter Target to Prometheus
+#open the file in management server /etc/prometheus/prometheus.yml
+#add below line to file and change ip
+  - job_name: 'server01_ne'
+    scrape_interval: 5s
+    static_configs:
+    - targets: ['<ip_address>:9100']
+	
+sudo systemctl restart prometheus
+
+#To verify that your Prometheus server can receive metrics from your node, run the command below
+curl http://<target-IP>:9100/metrics
+
+
+Install and Secure Grafana
+wget -q -O - https://packages.grafana.com/gpg.key | sudo apt-key add -
+sudo add-apt-repository "deb https://packages.grafana.com/oss/deb stable main"
+sudo apt update
+sudo apt install grafana
+sudo systemctl start grafana-server
+sudo systemctl status grafana-server
+sudo systemctl enable grafana-server
+
+#Test CPU alerting in grafana, run the follow command
+i=1; while [ $i -le 4 ]; do yes > /dev/null & ((i++)); done

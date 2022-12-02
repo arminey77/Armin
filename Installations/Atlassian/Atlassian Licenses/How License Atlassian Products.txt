@@ -1,0 +1,75 @@
+1- Install Java On Your OS
+
+$ sudo apt update
+
+$ sudo apt install default-jre
+
+2-Once Java installed, you can verify the installation with:
+
+$ java -version
+
+3- Put atlassian-agent.jar On Your OS 
+
+4- Go To Directory That Your atlassian-agent.jar is On it
+
+5- By Your Requirement , You Can License Any Atlassian Products By This Command , For Example We Want To License Jira Software : 
+
+$ sudo java -jar atlassian-agent.jar \
+  -d -m test@test.com -n BAT \
+  -p jira -o http://192.168.0.89 \
+  -s BY9B-GWD1-1C78-K2DE
+
+***************************  
+**-m : Your Email Address**
+**-p : Your Product******** 
+**-s : Your Server ID******
+***************************
+
+6- Output Should Be Like This : 
+$sudo jar atlassian-agent.jar 
+  -m wangzan18@126.com -n BAT \
+  -p jira -o http://jira.wzlinux.com \
+  -s BRQE-TEN6-TLYV-KFMI
+
+====================================================
+=======        Atlassian Crack Agent         =======
+=======           https://zhile.io           =======
+=======          QQ Group: 30347511          =======
+====================================================
+
+Your license code(Don't copy this line!!!): 
+
+AAABoQ0ODAoPeJx9ktFPqzAUxt/5K0h8LpaazbmE5CrUhAhMB5rcx46dbTWskNMynX+9Hcy467wkv
+LSn5/vO+X1c5K1yU7F3fer6bEpHU8rcMC9cRhl1XiUKr8F62ZbGOxyIrlfmTSB4ojRyB4HBFpxUS
+GVACVUCf28k7iNhIGB0ckPotf2GdLJ2uwCcrZ41oA6I37+1AiIEK4q9Qw64A4yj4G7+xEnBszEpk
+r8v5OE+jZ1ElqA02GoSRznPSOKPJjd0cjWi7HrsO2GtjB2X2zGr4E2o9YdQ/uSPz8ZeWW97w9N1+
+E5UrTCyVsFKVBqcxxbLjdBwXItRQkfEp1/Gxb6BTGwhCGdpyudhfJs4awRQm7ppAP/R7swG+rr6G
+ZNjw+9wz16feg9YRaBLlE2357Oq5FYaWLpV3+Au9u7GmEZPLy8/NrICT9ZDMeZG4CGtHtiReOd4d
+1s4M1wLJXXP9CBrVTsxyx/trVrrLgobXvBbgAhd60/+ebv4XuEML1/KfrcsidO44NHQ/D9/uFOG3
+XWDUsN57b9eR44vNpNDgX0C7gEsJDAsAhQGL/A02nteG056fiVCh12XIgz+KwIUG3z2e35ugE7Pc
+N6ZMj+Aum9LTK8=X02k4
+
+7- For Other Products You Should Use These Arguments By Your Requirement:
+-d,--datacenter           Data center license[default: false]
+ -h,--help                 Print help message
+ -m,--mail <arg>           License email
+ -n,--name <arg>           License name[default: <license email>]
+ -o,--organisation <arg>   License organisation
+ -p,--product <arg>        License product, support:
+                           [crowd: Crowd]
+                           [questions: Questions plugin for Confluence]
+                           [crucible: Crucible]
+                           [capture: Capture plugin for JIRA]
+                           [conf: Confluence]
+                           [training: Training plugin for JIRA]
+                           [*: Third party plugin key, looks like:
+                           com.foo.bar]
+                           [bitbucket: Bitbucket]
+                           [tc: Team Calendars plugin for Confluence]
+                           [bamboo: Bamboo]
+                           [fisheye: FishEye]
+                           [portfolio: Portfolio plugin for JIRA]
+                           [jc: JIRA Core]
+                           [jsd: JIRA Service Desk]
+                           [jira: JIRA Software(common jira)]
+ -s,--serverid <arg>       License server ID

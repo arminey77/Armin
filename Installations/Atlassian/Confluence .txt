@@ -1,0 +1,52 @@
+Install Confluence
+
+Atlassian Confluence is a professional wiki program.It is a tool of knowledge management through which collaboration and knowledge sharing among team members can be achieved.
+
+1. Write a Dockerfile:
+
+FROM cptactionhank/atlassian-confluence:latest
+
+USER root
+
+# Add proxy unpacking to container
+COPY "atlassian-agent.jar" /opt/atlassian/confluence/
+
+# Set Startup Loading Agent Package
+RUN echo 'export CATALINA_OPTS="-javaagent:/opt/atlassian/confluence/atlassian-agent.jar ${CATALINA_OPTS}"' >> /opt/atlassian/confluence/bin/setenv.sh
+
+------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+
+2. Download cracked files
+
+Download the compiled file from gitee and place it in the same directory as Dockerfile
+
+------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+
+3. Building Mirrors
+
+$ sudo docker build -t wangzan18/confluence:latest .
+
+------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+
+4. Startup Container
+
+$ sudo docker run -d --name confluence \
+  --restart always \
+  -p 80:8090 \
+  -e TZ="Asia/Tehran" \
+  -v ${Your_Volume}:/var/atlassian/confluence \
+  wangzan18/confluence:latest
+  
+------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+
+5. Visit confluence  
+
+Access IP:80 and follow the JIRA installation process.You can bind to a previously installed JIRA during boot.
+
+------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+
+6. Cracking
+
+java -jar atlassian-agent.jar  -m ${E_Mail} -n BAT -p conf -o http:${IP} -s ${Server_Serial}
+
+------------------------------------------------------------------------------------------------------------------------------------------------------------------------------

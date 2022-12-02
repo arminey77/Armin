@@ -1,0 +1,20 @@
+# make a directory to store all images
+sudo mkdir /var/lib/docker-registry
+sudo chown <user> /var/lib/docker-registry
+# run a test version of docker registry to create a config file
+sudo docker run -it --rm registry:2 cat \
+       /etc/docker/registry/config.yml > /var/lib/docker-registry/config.yml
+# append the following lines into /var/lib/docker-registry/config.yml
+proxy:
+  remoteurl: https://registry-1.docker.io
+# run the docker registry server
+sudo docker run --restart=always -p 5000:5000 \
+         --name v2-mirror -v /var/lib/docker-registry:/var/lib/registry \
+         --detach registry:2 serve /var/lib/registry/config.yml
+# now add this lines into /etc/docker/daemon.json in all servers running docker
+{
+    "registry-mirrors": ["http://<docker_registry_url>:5000"]
+}
+
+# open port in firewall
+sudo ufw allow proto tcp from any to any port 5000

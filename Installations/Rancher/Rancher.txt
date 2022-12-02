@@ -1,0 +1,52 @@
+#run rancher with following command
+sudo docker run -d --restart=unless-stopped -p 80:80 -p 443:443 rancher/rancher:v2.4.5
+
+# when creating new cluster provide private registry and docker root directory
+# if deleting and recreating kubernetes:
+# first delete cluster from rancher ui
+# then stop and delete kubernetes and rancher docker containers
+# now remove /etc/kubernetes from all servers
+docker system prune --volumes
+
+# open these ports in rancher server
+sudo ufw allow proto tcp from any to any port 80,443
+
+# open these ports in firewall for etcd servers
+sudo ufw allow proto tcp from any to any port 2376,2379,2380,8472,9099,10250
+
+# open these ports in firewall for controlplane servers
+sudo ufw allow proto tcp from any to any port 80,443,2376,6443,8472,9099,10250,10254
+sudo ufw allow 30000:32767/tcp
+sudo ufw allow 30000:32767/udp
+
+# open these ports in firewall for worker servers
+sudo ufw allow proto tcp from any to any port 22,80,443,2376,8472,9099,10250,10254
+sudo ufw allow 30000:32767/tcp
+sudo ufw allow 30000:32767/udp
+
+-------------------------------------------------------------------------------------------------------------------
+
+#run rancher container with self sign certification and key , following command
+
+sudo mkdir /etc/rancher-certs
+
+sudo docker pull superseb/omgwtfssl
+
+sudo docker run -v /etc/rancher-certs-mc:/certs \
+           -e CA_SUBJECT="MC Rancher root CA" \
+           -e CA_EXPIRE="7300" \
+           -e SSL_EXPIRE="3650" \
+           -e SSL_SUBJECT="rancher.mc.co" \
+           -e SSL_DNS="rancher.authin.co,192.168.22.141" \
+           -e SSL_IP="192.168.22.141" \
+           -e SILENT="true" \
+           superseb/omgwtfssl
+		   
+sudo docker run -d --restart=unless-stopped \
+           -p 8080:80 -p 8443:443 \
+           -v /mnt/rancher:/var/lib/rancher \
+           -v /etc/rancher-certs/cert.pem:/etc/rancher/ssl/cert.pem \
+           -v /etc/rancher-certs/key.pem:/etc/rancher/ssl/key.pem \
+           -v /etc/rancher-certs/ca.pem:/etc/rancher/ssl/cacerts.pem \
+           rancher/rancher:v2.4.5
+		   

@@ -1,0 +1,35 @@
+#Install KubeCTL On OS
+
+#1-Download the latest release with the command:
+curl -LO "https://dl.k8s.io/release/$(curl -L -s https://dl.k8s.io/release/stable.txt)/bin/linux/amd64/kubectl"
+
+
+#2-Download the kubectl checksum file:
+curl -LO "https://dl.k8s.io/$(curl -L -s https://dl.k8s.io/release/stable.txt)/bin/linux/amd64/kubectl.sha256"
+
+
+#3-Validate the kubectl binary against the checksum file:
+echo "$(<kubectl.sha256) kubectl" | sha256sum --check
+
+#If valid, the output is:
+kubectl: OK
+
+
+#4-Install kubectl
+sudo install -o root -g root -m 0755 kubectl /usr/local/bin/kubectl
+
+
+#5-Test to ensure the version you installed is up-to-date:
+kubectl version --client
+
+
+------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+
+#Accessing Clusters with kubectl from Your Workstationlink
+
+1-Log into Rancher. From the Global view, open the cluster that you want to access with kubectl.
+2-Click Kubeconfig File.
+3-Copy the contents displayed to your clipboard.
+4-Paste the contents into /home/authin/.kube/config
+5-Test To Ensure Your Accessing is Correct With Run This Command :
+$ kubectl get pods --all-namespaces

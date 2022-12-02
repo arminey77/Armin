@@ -1,0 +1,69 @@
+** Nexus Over Https Connection **
+
+
+1- Install Docker & Docker Compose 
+ 
+------------------------------------------------------
+
+2- Create Custom Network For Nginx Proxy & Nexus
+$ sudo docker network create authin
+
+------------------------------------------------------
+
+3- Create Directoy For Nexus 
+$ sudo mkdir /data/nexus 
+$ sudo chmod -R 200 /data/nexus 
+
+------------------------------------------------------
+
+4- Run This Docker Compose For Nexus 
+
+version: '3.3'
+services:
+    nexus3:
+        container_name: nexus
+        volumes:
+            - '/data/nexus:/nexus-data'
+        image: sonatype/nexus3
+networks:
+  default:
+    external:
+      name: authin
+
+------------------------------------------------------
+
+5- Create Directoy For Nginx
+$ sudo mkdir /data/nginx
+
+------------------------------------------------------
+
+6- Run This Docker Compose For Nginx Proxy 
+
+version: '3'
+services:
+  app:
+    image: 'jc21/nginx-proxy-manager:latest'
+    restart: unless-stopped
+    ports:
+      - '80:80'
+      - '81:81'
+      - '443:443'
+    volumes:
+      - /data/nginx/data:/data
+      - /data/nginx/letsencrypt:/etc/letsencrypt
+networks:
+  default:
+    external:
+      name: authin
+
+------------------------------------------------------
+
+7- Go to <<IP Address>>:81 & set Nginx Proxy For 5000 & 8081 Port To your Custom DNSes
+
+------------------------------------------------------
+
+8- Set ssl for them 
+
+------------------------------------------------------
+
+9 - Tag Images , Push & Pull Them Over Https 

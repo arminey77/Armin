@@ -1,0 +1,28 @@
+# downloading package
+wget -qO - https://artifacts.elastic.co/GPG-KEY-elasticsearch | sudo apt-key add -
+sudo apt-get update
+sudo apt-get install apt-transport-https
+echo "deb https://artifacts.elastic.co/packages/7.x/apt stable main" | sudo tee -a /etc/apt/sources.list.d/elastic-7.x.list
+sudo apt-get update
+sudo apt-get install kibana=7.6.2
+
+sudo systemctl daemon-reload
+sudo systemctl enable kibana.service
+sudo systemctl start kibana.service
+
+# configure kibana /etc/kibana/kibana.yml
+server.host: "0.0.0.0"
+elasticsearch.hosts: ["http://authindb01:9200", "http://authindb02:9200", "http://authindb03:9200"]
+
+# open port in firewall
+sudo ufw allow proto tcp from any to any port 5601
+
+# enable "stack monitoring"
+# select 'eanable Or, set up with self monitoring'
+# select Turn on monitoring
+
+# creating index template
+PUT _template/authin_log_template
+{
+	...
+}

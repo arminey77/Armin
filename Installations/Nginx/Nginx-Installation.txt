@@ -1,0 +1,112 @@
+-------------------------------------------------------------------
+Install Nginx (Ubunutu 20.04)
+-------------------------------------------------------------------
+
+#create repository file in /etc/apt/sources.list.d/nginx.list
+sudo vi /etc/apt/sources.list.d/nginx.list
+
+#add lines to repository file
+deb https://nginx.org/packages/ubuntu/ focal nginx
+deb-src https://nginx.org/packages/ubuntu/ focal nginx
+
+sudo apt update
+
+#If get Error: GPG error: https://nginx.org/packages/ubuntu focal InRelease: The following signatures couldn't be verified 
+#because the public key is not available: NO_PUBKEY $key --> use below command and Replace $key with the 
+#corresponding $key from your GPG error.
+sudo apt-key adv --keyserver keyserver.ubuntu.com --recv-keys $key
+
+sudo apt update
+sudo apt install nginx
+sudo systemctl start nginx
+
+#Ensure NGINX is installed from source
+sudo apt info nginx -a
+
+--------------------------------------------------------------------
+Create specific user for Ngix and restricted
+--------------------------------------------------------------------
+
+#Create user and Ensure that NGINX is run using a non-privileged, dedicated service account
+grep "user[^;]*;" /etc/nginx/nginx.conf
+sudo addgroup authnginx
+sudo useradd authnginx -r -g authnginx -d /var/cache/nginx -s /sbin/nologin
+
+#add the nginx user to /etc/nginx/nginx.conf by adding the user directive as shown below:
+user www-data;
+
+sudo chown root:authnginx /var/log/nginx
+sudo chmod o-rwx /var/log/nginx
+
+sudo deluser www-data
+grep "user[^;]*;" /etc/nginx/nginx.conf
+sudo -l -U authnginx
+
+--------------------------------------------------------------------
+Change Nginx files permissions and owner
+--------------------------------------------------------------------
+
+#Ensure NGINX directories and files are owned by root
+sudo stat /etc/nginx
+sudo chown -R root:root /etc/nginx
+
+#Ensure access to NGINX directories and files is restricted 
+sudo find /etc/nginx -type d | sudo xargs chmod 750
+sudo find /etc/nginx -type f | sudo xargs chmod 640
+
+sudo find /etc/nginx -type d | sudo xargs ls -ld
+sudo find /etc/nginx -type f | sudo xargs ls -l
+
+#Ensure the NGINX process ID (PID) file is secured
+sudo chown root:root /var/run/nginx.pid
+sudo chown 644 /var/run/nginx.pid
+ls -l /var/run/nginx.pid 
+
+--------------------------------------------------------------------
+Nginx Configuration
+--------------------------------------------------------------------
+
+#chnage keepalive_timeout is 10 seconds or less in /etc/nginx/nginx.conf
+
+#add below directive in http block in /etc/nginx/nginx.conf
+server_tokens off;
+
+#change nginx name in /usr/share/nginx/html/index.html
+
+#create directory for certificate and key
+sudo mkdir /etc/authinssl/
+
+#add certificate and key in directory
+
+#Ensure private key permissions are restricted
+sudo chmod 400 /etc/authinssl/authin.key
+
+#Configuration Diffie-Hellman parameters
+sudo openssl dhparam -out /etc/authinssl/dhparam.pem 2048
+
+#add below directive in config file 
+ssl_dhparam /etc/authinssl/dhparam.pem;
+
+#create directory for authin-log
+sudo mkdir /var/log/nginx/authin-log
+sudo chown authnginx:adm /var/log/nginx/authin-log
+
+sudo unlink /etc/nginx/sites-enabled/default
+sudo rm -rf /etc/nginx/sites-enabled/default
+sudo mkdir -p /etc/nginx/sites-available/
+
+# create config file in /etc/nginx/sites-available/authin.conf
+
+sudo ln -s /etc/nginx/sites-available/authin.conf /etc/nginx/sites-enabled/authin.conf
+
+sudo service nginx configtest
+sudo service nginx restart
+
+#add logrotate file in /etc/logrotate.d/
+
+--------------------------------------------------------------------
+Firewall Configuration
+--------------------------------------------------------------------
+# set firewall rules
+sudo ufw allow proto tcp from any to any port 80,443
+

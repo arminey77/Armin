@@ -1,0 +1,97 @@
+# ElasticSearch Curator Installation 
+
+-------------------------------------------
+
+# Update your system
+$ sudo apt update
+$ sudo apt upgrade
+-------------------------------------------
+# Download the DEB package
+$ sudo wget https://packages.elastic.co/curator/5/debian9/pool/main/e/elasticsearch-curator/elasticsearch-curator_5.8.4_amd64.deb
+-------------------------------------------
+# Install it using the following command
+$ sudo dpkg -i elasticsearch-curator_5.8.4_amd64.deb
+-------------------------------------------
+# Setting up Curator Config file
+The next step is to set up the configuration file for the Elasticsearch curator. By default, the configuration file is in the /home/user/.curator/curator.yml
+
+$ mkdir ~/.curator
+$ vi ~/.curator/curator.yml
+---
+client:
+ hosts: # define nosts
+    - 127.0.0.1
+    - 192.168.0.113
+ port: 9200 # Elasticsearch port
+ url_prefix: # set url prefix for example proxy. Leave empty for none
+ use_ssl: false # use SSL? True or False
+ certificate: # path to CA certificate => /path/to/ca/file
+ client_cert: # path to client certificate
+ client_key: # path to private SSL key
+ ssl_no_validate: false # set true if elasticsearch is protected by SSL
+ username: # HTTP Auth username
+ password: # HTTP Auth password
+ timeout: 30 # set timeout value
+ master_only: false # install on every node or master only?
+
+logging:
+ loglevel: INFO # set log level such as CRITICAL, DEBUG, WARNING, or ERROR
+ logfile: # path to the log file
+ logformat: default # define log format => defualt format is as 2016-04-22 11:53:09,972 INFO      Action #1: ACTIONNAME
+ blacklist: ['elasticsearch', 'urllib3'] # disables logs for elasticsearch and urllib3
+-------------------------------------------
+# Perform YAML File Actions
+$ sudo vi action.yml
+actions:
+  1:
+    action: close
+    description: >-
+      Close indices older than 14 days (based on index name).
+    options:
+      ignore_empty_list: True
+      delete_aliases: False
+      disable_action: False
+    filters:
+    - filtertype: pattern
+      kind: prefix
+      value: nginx-
+    - filtertype: age
+      source: name
+      direction: older
+      timestring: '%Y.%m.%d'
+      unit: days
+      unit_count: 14
+
+  2:
+    action: delete_indices
+    description: >-
+      Delete indices older than 14 days (based on index name).
+    options:
+      ignore_empty_list: True
+      disable_action: False
+    filters:
+    - filtertype: pattern
+      kind: prefix
+      value: nginx-
+    - filtertype: age
+      source: name
+      direction: older
+      timestring: '%Y.%m.%d'
+      unit: days
+      unit_count: 14
+-------------------------------------------
+# Run Following Command To Run Action 
+$ sudo curator --config /home/authin/.curator/curator.yml --dry-run /home/authin/.curator/action.yml
+-------------------------------------------
+# Make a cronjob to run the curator. I am setting it daily.
+$ sudo vi /etc/cron.daily/curator.sh
+-------------------------------------------
+# And add the following content in it,
+#!/bin/sh
+/opt/elasticsearch-curator/curator --config /home/authin/.curator/curator.yml /home/authin/.curator/action.yml
+-------------------------------------------
+# Now, Add the actual cronjob.
+$ sudo crontab -e
+-------------------------------------------
+# Append the following at the end of the file.
+0 5 * * * /bin/bash /etc/cron.daily/curator.sh

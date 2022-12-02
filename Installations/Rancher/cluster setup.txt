@@ -1,0 +1,35 @@
+# increasing ingress upload size limit to 5m
+kubectl patch configmap nginx-configuration -n ingress-nginx -p '{"data":{"proxy-body-size":"5m"}}'
+
+kubectl patch configmap nginx-configuration -n ingress-nginx -p '{"data":{"use-forwarded-headers":"true"}}'
+
+# adding jgroups service account
+kubectl create serviceaccount jgroups-kubeping-service-account -n authin
+
+# create rbac role
+cat <<EOF | kubectl apply -f -
+kind: ClusterRole
+apiVersion: rbac.authorization.k8s.io/v1
+metadata:
+  name: jgroups-kubeping-pod-reader
+rules:
+- apiGroups: [""]
+  resources: ["pods"]
+  verbs: ["get", "list"]
+EOF
+
+# adding role to service account
+cat <<EOF | kubectl apply -f -
+apiVersion: rbac.authorization.k8s.io/v1beta1
+kind: ClusterRoleBinding
+metadata:
+  name: jgroups-kubeping-api-access
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: jgroups-kubeping-pod-reader
+subjects:
+- kind: ServiceAccount
+  name: jgroups-kubeping-service-account
+  namespace: authin
+EOF

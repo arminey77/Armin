@@ -1,0 +1,118 @@
+# install jdk 8
+sudo apt update
+sudo apt install openjdk-8-jdk
+# to check installed version
+java -version
+# to change default version
+sudo update-alternatives --config java
+
+# adding elasticsaerch repository
+wget -qO - https://artifacts.elastic.co/GPG-KEY-elasticsearch | sudo apt-key add -
+sudo apt-get install apt-transport-https
+echo "deb https://artifacts.elastic.co/packages/7.x/apt stable main" | sudo tee -a /etc/apt/sources.list.d/elastic-7.x.list
+sudo apt-get update
+sudo apt-get install elasticsearch=7.6.2
+
+# create required directories
+sudo mkdir -p /mnt/elastic/elasticsearch/data
+sudo mkdir -p /mnt/elastic/elasticsearch/log
+sudo chown -R elasticsearch:elasticsearch /mnt/elastic/elasticsearch
+
+# update configuration in /etc/elasticsearch/elasticsearch.yml
+cluster.name: authin-cluster
+node.name: es-node-1
+path.data: /mnt/elastic/elasticsearch/data
+path.logs: /mnt/elastic/elasticsearch/log
+bootstrap.memory_lock: true
+network.host: 0.0.0.0
+http.port: 9200
+discovery.seed_hosts: ["authindb01", "authindb02", "authindb03"]
+cluster.initial_master_nodes: ["es-node-1", "es-node-2", "es-node-3"]
+
+
+
+# disabling swapping
+# edit /etc/default/elasticsearch
+MAX_LOCKED_MEMORY=unlimited
+
+# update systemd accordingly
+# or run -> sudo systemctl edit elasticsearch
+[Service]
+LimitMEMLOCK=infinity
+
+
+# now change elasticsearch jvm configuration at /etc/elasticsearch/jvm.options
+-Xms6g
+-Xmx6g
+
+# adjusting virtual memory in /etc/sysctl.conf
+vm.max_map_count=262144
+# to check run -> sysctl vm.max_map_count
+
+# increasing open file descriptor limit in /etc/security/limits.conf
+- nofile 65536
+# to check if it applied -> http://<hostname>:9200/_nodes/stats/process?filter_path=**.max_file_descriptors
+
+# open ports in firewall
+sudo ufw allow proto tcp from any to any port 9200,9300
+
+sudo systemctl daemon-reload
+sudo systemctl start elasticsearch
+sudo systemctl enable elasticsearch
+sudo reboot
+sudo systemctl status elasticsearch
+
+
+-------------------------------------------------------------------------------------------------------------------
+
+#Create manually backup from elasticsearch databases:
+
+#first : add below line to /etc/elasticsearch/elasticsearch.yml for mount registry
+path.repo: ["/home/shawn/backup"]
+ 
+#create registry for backup and mount it
+curl -X PUT "192.168.10.114:9200/_snapshot/authin_backup?pretty" -H 'Content-Type: application/json' -d'
+{
+  "type": "fs",
+  "settings": {
+    "location": "/mnt/backup/elasticsearch",
+    "compress": true
+  }
+}
+'
+
+#check registry
+curl -XGET 'http://192.168.10.114:9200/_snapshot/_all?pretty=true'
+
+#create snapshot from elasticsearch manually
+curl -X PUT "192.168.10.114:9200/_snapshot/authin_backup/%3Cmy_snapshot_%7Bnow%2Fd%7D%3E?pretty"
+
+#create full backup from elasticsearch manually
+curl -X PUT "localhost:9200/_snapshot/authin_backup/shahrdari_backup?wait_for_completion=true&pretty"
+
+-------------------------------------------------------------------------------------------------------------------
+
+#Create password for Built-in users
+
+1-update configuration in /etc/elasticsearch/elasticsearch.yml
+xpack.security.enabled: true
+xpack.security.transport.ssl.enabled: true
+
+2-Go to directory /usr/share/elasticsearch/bin
+cd /usr/share/elasticsearch/bin
+
+3-Generate random password for built-in users
+sudo ./elasticsearch-setup-passwords auto
+
+4-Copy users and passwords and keep these in a secure file
+
+5-Install kibana
+
+7-update configuration in /etc/elasticsearch/elasticsearch.yml and add kibana user and password
+elasticsearch.username: "kibana"
+elasticsearch.password: "password"
+
+8-Restart kibana service
+sudo systemctl restart kibana.service
+ 
+9-In kibana dashboard (http://kibana_server_ip:5601) login with elastic super user 

@@ -1,0 +1,44 @@
+# switch to root user
+sudo su
+# now install vsftpd
+sudo apt update
+sudo apt install vsftpd
+
+systemctl start vsftpd
+systemctl enable vsftpd
+
+# setup new user
+adduser authinftp
+# create a ftp directory
+mkdir -p /mnt/mongodb/ftp/files
+mkdir -p /mnt/mongodb/ftp/log
+chown -R authinftp:authinftp /mnt/mongodb/ftp
+
+# create /etc/vsftpd.user_list file and add authinftp in it
+
+# configure vsftpd
+# make a backup
+cp /etc/vsftpd.conf /etc/vsftpd.conf.bak
+# now edit /etc/vsftpd.conf and change and add following values
+write_enable=YES
+local_umask=022
+ascii_upload_enable=YES
+ascii_download_enable=YES
+ftpd_banner=Authin FTP service
+userlist_enable=YES
+userlist_file=/etc/vsftpd.user_list
+userlist_deny=NO
+tcp_wrappers=YES
+anon_max_rate=0
+trans_chunk_size=8192
+xferlog_file=/mnt/mongodb/ftp/log/vsftpd.log
+local_root=/mnt/mongodb/ftp/files
+pasv_min_port=40000
+pasv_max_port=50000
+
+# open firewall port for ftp
+sudo ufw allow proto tcp from any to any port 21,40000:50000
+
+# to test vsftpd
+ftp authindb03
+

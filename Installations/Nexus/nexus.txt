@@ -1,0 +1,114 @@
+# install jdk 8
+sudo apt update
+sudo apt install openjdk-8-jdk
+# to check installed version
+java -version
+# to change default version
+sudo update-alternatives --config java
+
+# first download tar file
+cd /opt
+sudo wget https://download.sonatype.com/nexus/3/latest-unix.tar.gz
+sudo tar -xvf nexus-<nexus-version>.tar.gz
+sudo mv nexus-<nexus-version> nexus
+# create a user for nexus
+sudo adduser nexus
+sudo chown -R nexus:nexus /opt/nexus
+sudo chown -R nexus:nexus /opt/sonatype-work
+# edit sudo vi /opt/nexus/bin/nexus.rc
+run_as_user="nexus"
+# create /etc/systemd/system/nexus.service
+[Unit]
+Description=nexus service
+After=network.target
+
+[Service]
+Type=forking
+LimitNOFILE=65536
+User=nexus
+Group=nexus
+ExecStart=/opt/nexus/bin/nexus start
+ExecStop=/opt/nexus/bin/nexus stop
+User=nexus
+Restart=on-abort
+[Install]
+WantedBy=multi-user.target
+
+sudo ufw allow proto tcp from any to any port 8081,5000,5001
+
+sudo systemctl enable nexus
+sudo systemctl start nexus 
+sudo systemctl status nexus
+
+# get default admin passord form  /opt/sonatype-work/nexus3/admin.password
+# add "docker bearer token realm" in nexus
+# next configure a private, a proxy and a group registry and open their ports in firewall
+# add group registry as an insecure registry in other servers (edit /etc/docker/daemon.json)
+{
+    "insecure-registries" : [ "authinmgmt.iums.ac.ir:5000" ]
+}
+
+# add insecure registries in nexus server (edit /etc/docker/daemon.json)
+{
+    "insecure-registries" : [ "authinmgmt.iums.ac.ir:5000", "authinmgmt.iums.ac.ir:5001" ]
+}
+
+# then restart docker
+sudo systemctl restart docker
+
+
+# (optional) if want to define a proxy add these lines into /etc/systemd/system/docker.service.d/http-proxy.conf
+[Service]
+Environment="HTTP_PROXY=http://172.18.246.26:5000/"
+Environment="HTTPS_PROXY=http://172.18.246.26:5000/"
+# then restart the service
+sudo systemctl daemon-reload
+sudo systemctl restart docker
+
+
+
+# to push an image first login using nexus credentials
+sudo docker login <registry_address>
+
+
+
+sudo docker pull rancher/rke-tools:v0.1.58
+sudo docker pull rancher/hyperkube:v1.18.6-rancher1
+sudo docker pull rancher/calico-node:v3.13.4
+sudo docker pull rancher/calico-pod2daemon-flexvol:v3.13.4
+sudo docker pull rancher/calico-cni:v3.13.4
+sudo docker pull rancher/rke-tools:v0.1.59
+sudo docker pull rancher/security-scan:v0.1.11
+sudo docker pull rancher/nginx-ingress-controller:nginx-0.32.0-rancher1
+sudo docker pull rancher/coredns-coredns:1.6.9
+sudo docker pull rancher/coreos-flannel:v0.12.0
+sudo docker pull rancher/kube-api-auth:v0.1.4
+sudo docker pull rancher/sonobuoy-sonobuoy:v0.16.3 
+sudo docker pull rancher/coreos-etcd:v3.4.3-rancher1
+sudo docker pull rancher/metrics-server:v0.3.6
+sudo docker pull rancher/cluster-proportional-autoscaler:1.7.1
+sudo docker pull quay.io/fluentd_elasticsearch/fluentd:v3.0.2
+sudo docker pull rancher/nginx-ingress-controller-defaultbackend:1.5-rancher1
+sudo docker pull rancher/hello-world:latest 
+sudo docker pull rancher/pause:3.1
+sudo docker pull rancher/server:v1.1.1
+sudo docker pull rancher/server:latest
+sudo docker pull rancher/rancher-agent:v2.4.5 
+sudo docker pull rancher/rancher:v2.4.5
+sudo docker pull mysql/mysql-router:8.0.21
+
+
+# to find images to tag them (for example)
+for image in $(sudo docker images --format {{.Repository}}:{{.Tag}} | grep -v authinmgmt | grep -v 172); do sudo docker tag $image authinmgmt.iums.ac.ir:5001/$image; done
+# next login to private registry to push images
+sudo docker login authinmgmt.iums.ac.ir:5001
+# to push batch images (for example)
+for image in $(sudo docker images --format {{.Repository}}:{{.Tag}} | grep authinmgmt.*5001); do sudo docker push $image; done
+
+# now go to Authin images directory and load images
+for image in $(ls); sudo docker load -i $image; done
+# then tag images
+for image in $(sudo docker images --format {{.Repository}}:{{.Tag}} | grep prod); do sudo docker tag $image authinmgmt.iums.ac.ir:5001/$image; done
+# to push batch images
+for image in $(sudo docker images --format {{.Repository}}:{{.Tag}} | grep prod | grep iums); do sudo docker push $image; done
+

@@ -1,0 +1,44 @@
+sudo apt-get update
+sudo apt-get install \
+    apt-transport-https \
+    ca-certificates \
+    curl \
+    gnupg-agent \
+    software-properties-common
+curl -fsSL https://download.docker.com/linux/ubuntu/gpg | sudo apt-key add -
+sudo apt-key fingerprint 0EBFCD88
+sudo add-apt-repository \
+   "deb [arch=amd64] https://download.docker.com/linux/ubuntu \
+   $(lsb_release -cs) \
+   stable"
+sudo apt-get update
+sudo apt-get install docker-ce docker-ce-cli containerd.io
+
+# to add a docker proxy (optional)
+sudo mkdir /etc/systemd/system/docker.service.d
+# create /etc/systemd/system/docker.service.d/http-proxy.conf enter following lines 
+[Service]
+Environment="HTTP_PROXY=http://172.18.247.105:443/"
+Environment="HTTPS_PROXY=http://172.18.247.105:443/"
+
+sudo systemctl daemon-reload
+sudo systemctl restart docker
+
+
+###################################
+to change docker data directory
+###################################
+sudo systemctl stop docker
+# edit /etc/docker/daemon.json to change docker data directory
+{ 
+   "graph": "/mnt/k8s/docker" 
+}
+
+sudo rsync -aP /var/lib/docker/ /mnt/k8s/docker
+sudo mv /var/lib/docker /var/lib/docker.old
+
+sudo systemctl start docker
+sudo systemctl status docker
+
+# if everything goes well
+sudo rm -rf /var/lib/docker.old

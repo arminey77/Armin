@@ -1,0 +1,85 @@
+#install Rabbitmq latest version, Erlang and dependencies
+sudo apt-get install curl gnupg debian-keyring debian-archive-keyring apt-transport-https -y
+sudo apt-key adv --keyserver "hkps://keys.openpgp.org" --recv-keys "0x0A9AF2115F4687BD29803A206B73A36E6026DFCA"
+sudo apt-key adv --keyserver "keyserver.ubuntu.com" --recv-keys "F77F1EDA57EBB1CC"
+curl -1sLf 'https://packagecloud.io/rabbitmq/rabbitmq-server/gpgkey' | sudo apt-key add -
+
+#Add apt repositories maintained by Team RabbitMQ
+sudo tee /etc/apt/sources.list.d/rabbitmq.list <<EOF
+deb http://ppa.launchpad.net/rabbitmq/rabbitmq-erlang/ubuntu bionic main
+deb-src http://ppa.launchpad.net/rabbitmq/rabbitmq-erlang/ubuntu bionic main
+deb https://packagecloud.io/rabbitmq/rabbitmq-server/ubuntu/ focal main
+deb-src https://packagecloud.io/rabbitmq/rabbitmq-server/ubuntu/ focal main
+EOF
+
+#Update package indices
+sudo apt-get update -y
+
+#Install Erlang packages
+sudo apt-get install -y erlang-base \
+erlang-asn1 erlang-crypto erlang-eldap erlang-ftp erlang-inets \
+erlang-mnesia erlang-os-mon erlang-parsetools erlang-public-key \
+erlang-runtime-tools erlang-snmp erlang-ssl \
+erlang-syntax-tools erlang-tftp erlang-tools erlang-xmerl
+
+#Install rabbitmq-server and its dependencies
+sudo apt-get install rabbitmq-server -y --fix-missing
+
+#Enable the RabbitMQ Management Dashboard
+sudo rabbitmq-plugins enable rabbitmq_management
+
+# Open port for rabbitmq and management console
+sudo ufw allow proto tcp from any to any port 5672,15672,25672,4369
+
+# create rabbitmq folder
+sudo mkdir /mnt/mongodb/rabbitmq
+sudo chown -R rabbitmq:rabbitmq /mnt/mongodb/rabbitmq
+sudo chmod 766 /mnt/mongodb/rabbitmq
+
+# set the following environment variables in /etc/rabbitmq/rabbitmq-env.conf
+CONFIG_FILE=/mnt/mongodb/rabbitmq/rabbitmq
+GENERATED_CONFIG_DIR=/mnt/mongodb/rabbitmq/generated
+MNESIA_BASE=/mnt/mongodb/rabbitmq/mnesia
+SCHEMA_DIR=/mnt/mongodb/rabbitmq/schema
+LOG_BASE=/mnt/mongodb/rabbitmq/log
+
+# now reset rabbitmq
+sudo rabbitmqctl stop_app
+sudo rabbitmqctl reset
+sudo reboot
+#to verify mnesia and log exists
+sudo ls /mnt/mongodb/rabbitmq
+
+#set user for rabbitmq:
+sudo rabbitmqctl add_user authin <StrongPassword>
+sudo rabbitmqctl set_user_tags authin administrator
+sudo rabbitmqctl add_vhost /
+sudo rabbitmqctl set_permissions -p / authin ".*" ".*" ".*"
+sudo rabbitmqctl delete_user guest
+
+#Copy RabbitMQ Server 1 Cookie from /var/lib/rabbitmq/.erlang.cookie to the same location in other servers
+#node2:
+sudo systemctl restart rabbitmq-server
+sudo rabbitmqctl stop_app
+sudo rabbitmqctl reset
+sudo rabbitmqctl join_cluster rabbit@authindb01
+sudo rabbitmqctl start_app
+sudo rabbitmqctl cluster_status
+	
+#Configure RabbitMQ HA Policy
+sudo rabbitmqctl set_policy ha-all "." '{"ha-mode":"all"}'
+sudo rabbitmqctl list_policies 		// list of policies
+	
+#### some utility commands
+#RabbitMQ User && Vhost Management Commands
+	rabbitmqctl delete_user <user>
+	rabbitmqctl authenticate_user <user>
+	rabbitmqctl change_password <user>
+	rabbitmqctl add_vhost /my_vhost
+	rabbitmqctl list_vhosts
+	rabbitmqctl delete_vhost /myvhost
+	rabbitmqctl set_permissions -p /myvhost user ".*" ".*" ".*"
+	rabbitmqctl list_permissions -p /myvhost
+	rabbitmqctl list_user_permissions user
+	rabbitmqctl clear_permissions -p /myvhost user
+	sudo rabbitmqctl delete_user guest

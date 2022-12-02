@@ -1,0 +1,70 @@
+#Grant MySQL Privileges to Backup Admin
+sudo mysql -p
+CREATE USER 'authinbackup'@'localhost' IDENTIFIED BY '<password>';
+GRANT RELOAD ON *.* TO 'authinbackup'@'localhost';	
+GRANT CREATE, INSERT, DROP, UPDATE ON mysql.backup_progress TO 'authinbackup'@'localhost';
+GRANT CREATE, INSERT, SELECT, DROP, UPDATE, ALTER ON mysql.backup_history TO 'authinbackup'@'localhost';
+GRANT REPLICATION CLIENT ON *.* TO 'authinbackup'@'localhost';
+GRANT SUPER ON *.* TO 'authinbackup'@'localhost';
+GRANT PROCESS ON *.* TO 'authinbackup'@'localhost';
+GRANT SELECT ON performance_schema.replication_group_members TO 'authinbackup'@'localhost';
+GRANT SELECT ON *.* TO 'authinbackup'@'localhost';
+
+# to verify granted permissions
+SHOW GRANTS FOR 'authinbackup'@'localhost';
+
+# create backup directory
+sudo mkdir -p /mnt/backup/mysql/
+sudo chown -R root:root /mnt/backup/mysql/
+sudo chmod -R 770 /mnt/backup/mysql/
+
+# now create backup script at /etc/mysql/backup.sh
+#!/bin/bash
+
+# Destiny folder where backups are stored
+DEST=/mnt/backup/mysql
+CURRDATE=$(date +"%F")
+KEEP_DAY=5
+
+# User name to make backup
+USER="authinbackup"
+# File where has the mysql user password
+PASS="SecurityAirtour"
+
+DATABASES=$(mysql -u $USER -p$PASS -e "SHOW DATABASES;" | tr -d "| " | grep -v Database)
+
+if [ -d "${DEST}/$CURRDATE" ]
+then
+    sudo rm -Rf $DEST/$CURRDATE
+fi
+
+sudo mkdir -p $DEST/$CURRDATE
+
+for db in $DATABASES; do
+  if  [[ ${db} != *_schema* ]]; then
+    if [[ ${db} != *mysql* ]]; then
+      if [[ ${db} != *sys* ]]; then
+        FILE="${DEST}/$CURRDATE/$CURRDATE.$db.sql.gz"
+        sudo mysqldump --set-gtid-purged=OFF --single-transaction --routines --quick -u $USER -p$PASS -B $db | gzip > "$FILE"
+      fi
+    fi
+  fi
+done
+
+# Delete old backups
+sudo find $DEST -type d -mtime +$KEEP_DAY -exec rm -R {} \;
+
+------------------------------------------------------------------------------
+
+# now make this script executable
+sudo chmod +x /etc/mysql/backup.sh
+
+
+# to add backup cron job
+sudo crontab -u root -e
+# edit the file and add
+0 2 * * * /etc/mysql/backup.sh
+# now get crontab list to verify
+sudo crontab -l -u root
+cd /etc/mysql/
+sudo ./backup.sh

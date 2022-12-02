@@ -1,0 +1,97 @@
+#3 nodes primary-secondary-arbiter
+
+#ping ip from 3node
+
+#3 diffrent hostname for nodes:
+#edit file hostname and hosts in /etc/hostname and /etc/hosts
+#add 2 other hostname and ip in /etc/hosts
+
+#install mongodb in 3nodes: (Xenial)
+https://docs.mongodb.com/manual/tutorial/install-mongodb-on-ubuntu/
+
+#install mongodb in 3nodes: (ubuntu 20.04)
+sudo wget -qO - https://www.mongodb.org/static/pgp/server-4.2.asc | sudo apt-key add -
+echo "deb [ arch=amd64,arm64 ] https://repo.mongodb.org/apt/ubuntu bionic/mongodb-org/4.2 multiverse" | sudo tee /etc/apt/sources.list.d/mongodb-org-4.2.list
+sudo apt update
+sudo apt-get install mongodb-org
+
+
+#change dbpath and logspath in mongodb
+	sudo vi /etc/mongod.conf
+	# Where to store the data.
+		dbpath=/mnt/mongodb/mongodb/data
+
+	#where to log
+		systemLog:
+			path: /mnt/mongodb/mongodb/log/mongod.log
+
+	sudo mkdir -p /mnt/mongodb/mongodb/log
+  	sudo mkdir -p /mnt/mongodb/mongodb/data
+	sudo chown mongodb:mongodb -R /mnt/mongodb/mongodb/
+	sudo systemctl restart mongod
+	sudo mongo //mongoshell
+
+#mongodb enable:
+sudo systemctl enable mongod
+
+
+
+
+#edit file /etc/mongod.conf:
+replication:
+   replSetName: "authinrs"
+net:
+   bindIp: 0.0.0.0
+
+
+#restart mongod
+sudo systemctl restart mongod
+
+# open ports in firewall
+sudo ufw allow proto tcp from any to any port 27017
+
+#test nodes
+sudo mongo --host <hostname>
+
+# now going to mongo shell to create cluster
+sudo mongo
+
+# to add all nodes in one command
+rsconf = {
+  _id: "authinrs",
+  members: [
+    {
+     _id: 0,
+     host: "authindb01:27017"
+    },
+    {
+     _id: 1,
+     host: "authindb02:27017"
+    },
+    {
+     _id: 2,
+     host: "authindb03:27017"
+    }
+   ]
+}
+rs.initiate( rsconf )
+rs.status()
+
+#primarynode
+rs.initiate({_id : "authinrs",members: [{ _id: 0, host: "<hostname>:27017" }]})
+rs.status()
+
+#secondarynode
+rs.add("<hostname>:27017")
+
+#arbitarynode ('true' makes it arbiter)
+rs.add("<hostname>:27017", true)
+rs.status()
+
+#secondarynode
+rs.add("192.168.8.139:27017")
+
+#arbitarynode
+rs.add("192.168.8.140:27017", true)
+rs.status()
+

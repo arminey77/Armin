@@ -1,0 +1,12 @@
+--------------------------------------------------------------------
+Certificate and Key
+--------------------------------------------------------------------
+
+# to export crt and key from pfx file
+openssl pkcs12 -in [yourfile.pfx] -clcerts -nokeys -out [certificate.crt]
+openssl pkcs12 -in [yourfile.pfx] -nocerts -out [drlive.key]
+# to remove passphrase
+openssl rsa -in [original.key] -out [new.key]
+
+#generate self-sign certificate
+openssl req -x509 -sha256 -nodes -days 365 -newkey rsa:4096 -keyout authin.pem -out authin.crt

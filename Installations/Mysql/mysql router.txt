@@ -1,0 +1,54 @@
+apiVersion: apps/v1
+items:
+- apiVersion: apps/v1
+  kind: DaemonSet
+  metadata:
+    name: mysql-router
+    namespace: authin
+    labels:
+      app: mysql-router
+  spec:
+    selector:
+      matchLabels: 
+        name: mysql-router
+    template:
+      metadata:
+        labels:
+          name: mysql-router
+          app: mysql-router
+      spec:
+        containers:
+        - name: mysql-router
+          image: mysql/mysql-router:8.0.21
+          ports:
+            - containerPort: 6446
+              name: service-node
+          env:
+          - name: MYSQL_PASSWORD
+            value: $3Qrity@iums
+          - name: MYSQL_USER
+            value: authin
+          - name: MYSQL_PORT
+            value: "3306"
+          - name: MYSQL_HOST
+            value: authindb01
+          - name: MYSQL_INNODB_NUM_MEMBERS
+            value: "1"
+          command:
+          - "/bin/bash"
+          - "-cx"
+          - "exec /run.sh mysqlrouter"
+- apiVersion: v1
+  kind: Service
+  metadata:
+    name: mysql-router
+    labels:
+      app: mysql-router
+  spec:
+    type: NodePort
+    ports:
+      - port: 6446
+    selector:
+      app: mysql-router
+kind: List
+metadata: {}

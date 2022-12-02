@@ -1,0 +1,160 @@
+Requirements : 
+
+1- Access to a Kubernetes cluster, version 1.7 or later. 
+2- Kubectl Installed 
+3- Docker Installed
+
+--------------------------------------------------------------------------------------------------------------------------
+
+MinIO : Object Storage for AI, Opensource, S3 compatible.
+
+Step 1: Run minio container
+
+$ sudo docker run  -d \
+  -p 9000:9000 \
+  -p 9001:9001 \
+  --name minio1 \
+  -v /mnt/data:/data \
+  -e "MINIO_ROOT_USER=AKIAIOSFODNN7EXAMPLE" \
+  -e "MINIO_ROOT_PASSWORD=wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY" \
+  quay.io/minio/minio server /data --console-address ":9001"
+
+--------------------------------------------------------------------------------------------------------------------------
+
+Step 2: Go To Your Minio Server (GUI) , Create A Bucket & Name It Backup .
+
+
+--------------------------------------------------------------------------------------------------------------------------
+
+Step 3: Download Velero 1.7.0 latest release
+
+$ sudo wget https://github.com/vmware-tanzu/velero/releases/download/v1.7.0/velero-v1.7.0-linux-amd64.tar.gz
+$ sudo tar zxf velero-v1.7.0-linux-amd64.tar.gz
+$ sudo mv velero-v1.7.0-linux-amd64/velero /usr/local/bin/
+$ sudo rm -rf velero*
+
+--------------------------------------------------------------------------------------------------------------------------
+
+Step 4: Create credentials file (Needed for velero initialization and to connect to the object source)
+
+$ sudo cat <<EOF>> minio.credentials
+[default]
+aws_access_key_id=minioadmin
+aws_secret_access_key=minioadmin
+EOF
+
+--------------------------------------------------------------------------------------------------------------------------
+
+Step 5: Install Velero in the Kubernetes Cluster
+
+$ sudo velero install \
+--provider aws \
+--plugins velero/velero-plugin-for-aws \
+--bucket backup \
+--secret-file ./minio.credentials \
+--use-volume-snapshots=false \
+--use-restic \
+--kubeconfig {YOUR_KUBECTL_CONFIG_PATH}$ \
+--backup-location-config region=minio,s3ForcePathStyle="true",s3Url=http://<ip-address>:9000
+
+--------------------------------------------------------------------------------------------------------------------------
+
+Step 6: Check and verify velero is up and running in velero namespace
+
+velero version 
+kubectl get ns 
+kubectl get all -n velero (pods should be up and running)
+kubectl get crds -n velero
+
+--------------------------------------------------------------------------------------------------------------------------
+
+Step 7: Steps to create a manually backup using velero
+
+velero help backup
+velero backup create <BACKUP_NAME>
+
+# Create a backup including the nginx and default namespaces
+velero backup create backup-1 --include-namespaces nginx,default
+
+# Create a backup excluding the kube-system and default namespaces
+velero backup create backup-1 --exclude-namespaces kube-system,default
+
+# Create a backup including storageclass resource only
+velero backup create backup-1 --include-resources storageclasses
+
+# Create a backup for the elasticsearch cluster only
+velero backup create backup-1 --selector app=elasticsearch-master
+
+#List Backups
+velero backup get
+
+#Describe Backups
+velero backup describe <BACKUP_NAME_1> <BACKUP_NAME_2> <BACKUP_NAME_3>
+
+#Retrieve Backup Logs
+velero backup logs <BACKUP_NAME>
+
+
+--------------------------------------------------------------------------------------------------------------------------
+
+Step 8: Restore velero backup to the cluster:
+
+#Manually Restore
+velero restore create <RESTORE_NAME> --from-backup <BACKUP_NAME>
+
+# Create a restore including the nginx and default namespaces
+velero restore create --from-backup backup-1 --include-namespaces nginx,default
+
+# Create a restore excluding the kube-system and default namespaces
+velero restore create --from-backup backup-1 --exclude-namespaces kube-system,default
+
+# Create a restore including the nginx and default namespaces
+velero restore create --from-backup backup-1 --include-namespaces nginx,default
+
+# Create a restore excluding the kube-system and default namespaces
+velero restore create --from-backup backup-1 --exclude-namespaces kube-system,default
+
+# create a restore for only persistentvolumeclaims and persistentvolumes within a backup
+velero restore create --from-backup backup-1 --include-resources persistentvolumeclaims,persistentvolumes
+
+# create a restore for only the elasticsearch cluster within a backup
+velero restore create --from-backup backup-1 --selector app=elasticsearch-master
+
+#Retrieve restores
+velero restore get
+
+#Describe restores
+velero restore describe <RESTORE_NAME_1> <RESTORE_NAME_2> <RESTORE_NAME_3>
+
+#Retrieve restore logs
+velero restore logs <RESTORE_NAME>
+
+
+--------------------------------------------------------------------------------------------------------------------------
+
+Step 9: Backup schedule using velero:
+
+# Create schedule template
+# Create a backup every 6 hours
+velero schedule create <SCHEDULE_NAME> --schedule="0 */6 * * *"
+
+# Create a backup every 6 hours with the @every notation
+velero schedule create <SCHEDULE_NAME> --schedule="@every 6h"
+
+# Create a daily backup of the web namespace
+velero schedule create <SCHEDULE_NAME> --schedule="@every 24h" --include-namespaces web
+
+# Create a weekly backup, each living for 90 days (2160 hours)
+velero schedule create <SCHEDULE_NAME> --schedule="@every 168h" --ttl 2160h0m0s
+
+
+
+--------------------------------------------------------------------------------------------------------------------------
+
+Step 10: Create backup with TTL( Time to Live):
+
+velero backup create secondbackup  --include-namespaces default --ttl 2h
+velero backup describe secondbackup
+velero backup get
+
+

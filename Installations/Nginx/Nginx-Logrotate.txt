@@ -1,0 +1,27 @@
+-------------------------------------------------------------------
+Nginx Logrotate Guide
+-------------------------------------------------------------------
+
+#create nginx-authin file in /etc/logrotate.d/
+
+/var/log/nginx/authin-log/*.log {
+        daily
+        missingok
+        rotate 15
+        compress
+        delaycompress
+        notifempty
+        create 0640 authnginx adm
+        sharedscripts
+        prerotate
+                if [ -d /etc/logrotate.d/httpd-prerotate ]; then \
+                        run-parts /etc/logrotate.d/httpd-prerotate; \
+                fi \
+        endscript
+        postrotate
+                invoke-rc.d nginx rotate >/dev/null 2>&1
+        endscript
+}
+
+#run command and debug logrotate for authin-log
+sudo logrotate -vfd /etc/logrotate.d/authin-log

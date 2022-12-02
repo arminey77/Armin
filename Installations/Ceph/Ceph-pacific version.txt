@@ -1,0 +1,236 @@
+~Ceph deploy via cephadm on ubuntu 20.04 on 3 nodes
+
+~REQUIREMENTS
+ 3 nodes, with additional drive(in this example /dev/sdb)
+ ubuntu/debian
+ Systemd
+ Docker for running containers
+ Time synchronization 
+ 
+ 
+~PREPARE
+
+
+ Edit /etc/hosts On Every Nodes
+
+$sudo vi /etc/hosts
+ 
+192.168.56.101 node1 
+192.168.56.102 node2 
+192.168.56.103 node3 
+
+----------------------------------------------------------------------------------------------------------------------
+ Set hostnames
+
+$sudo hostnamectl set-hostname node1
+$sudo hostnamectl set-hostname node2
+$sudo hostnamectl set-hostname node3
+
+----------------------------------------------------------------------------------------------------------------------
+ Set TimeZone On Every Nodes
+ 
+$sudo timedatectl set-timezone Asia/Tehran
+
+----------------------------------------------------------------------------------------------------------------------
+ Tune /etc/sysctl.conf On Every Nodes
+
+$sudo vi /etc/sysctl.conf 
+  
+  add these lines to the file : 
+kernel.pid_max = 4194303
+fs.aio-max-nr=1048576
+
+ Apply Changes
+ 
+$sudo sysctl --system
+$sudo sysctl -p
+
+----------------------------------------------------------------------------------------------------------------------
+ Add User ceph-admin  On Every Nodes
+ 
+$sudo useradd -d /home/ceph-admin -m ceph-admin -s /bin/bash
+$sudo passwd ceph-admin
+$echo "ceph-admin ALL = (root) NOPASSWD:ALL" | sudo tee /etc/sudoers.d/ceph-admin
+$sudo chmod 0440 /etc/sudoers.d/ceph-admin
+ 
+----------------------------------------------------------------------------------------------------------------------
+ Create ssh config for user
+ 
+$su ceph-admin
+
+$tee -a ~/.ssh/config <<EOF
+Host *
+   UserKnownHostsFile /dev/null
+   StrictHostKeyChecking no
+   IdentitiesOnly yes
+   ConnectTimeout 0
+   ServerAliveInterval 300
+Host node1
+   Hostname node1
+   User ceph-admin
+   UserKnownHostsFile /dev/null
+   StrictHostKeyChecking no
+   IdentitiesOnly yes
+   ConnectTimeout 0
+   ServerAliveInterval 300
+Host node2
+   Hostname node2
+   User ceph-admin
+   UserKnownHostsFile /dev/null
+   StrictHostKeyChecking no
+   IdentitiesOnly yes
+   ConnectTimeout 0
+   ServerAliveInterval 300
+Host node3
+   Hostname node3
+   User ceph-admin
+   UserKnownHostsFile /dev/null
+   StrictHostKeyChecking no
+   IdentitiesOnly yes
+   ConnectTimeout 0
+   ServerAliveInterval 300
+EOF
+
+----------------------------------------------------------------------------------------------------------------------
+ Generate and copy keys on all nodes
+
+$su ceph-admin
+$ssh-keygen
+$ssh-copy-id ceph-admin@node1 && ssh-copy-id ceph-admin@node2 && ssh-copy-id ceph-admin@node3
+
+----------------------------------------------------------------------------------------------------------------------
+ Ceph initial deploy
+ From node1
+ 
+$su ceph-admin
+$sudo curl --silent --remote-name --location https://github.com/ceph/ceph/raw/pacific/src/cephadm/cephadm
+$sudo cp cephadm /usr/local/bin/
+$sudo chmod +x /usr/local/bin/cephadm
+$sudo /usr/local/bin/cephadm add-repo --release pacific
+$sudo /usr/local/bin/cephadm install
+$if [[ ! -d "/etc/ceph" ]]; then sudo mkdir -p /etc/ceph;fi
+$sudo /usr/local/bin/cephadm bootstrap --mon-ip  192.168.56.101 --initial-dashboard-user authin  --initial-dashboard-password authin --dashboard-password-noupdate 
+
+----------------------------------------------------------------------------------------------------------------------
+ Install packages other machines(from cluster) to mount ceph(node2,node3)
+ 
+$sudo cephadm install ceph-common 
+
+---------------------------------------------------------------------------------------------------------------------- 
+ Copy keys to root user to other nodes
+ 
+$ssh-copy-id -f -i /etc/ceph/ceph.pub root@node2
+$ssh-copy-id -f -i /etc/ceph/ceph.pub root@node3 
+
+----------------------------------------------------------------------------------------------------------------------
+ Ceph nodes add via orch(orchestrator)
+
+$sudo ceph orch host add node2
+$sudo ceph orch host add node3
+
+----------------------------------------------------------------------------------------------------------------------
+ Set public network for our ceph
+ 
+$sudo ceph config set mon public_network 192.168.1.0/24
+
+----------------------------------------------------------------------------------------------------------------------
+ Deploy monitors on a specific set of hosts:
+ 
+$sudo ceph orch apply mon "node1,node2,node3"
+
+----------------------------------------------------------------------------------------------------------------------
+ Ceph add label mon
+
+$sudo ceph orch host label add node1 mon
+$sudo ceph orch host label add node2 mon
+$sudo ceph orch host label add node3 mon
+
+----------------------------------------------------------------------------------------------------------------------
+ Ceph create osd
+ Exec command on nodes to clean drives(not necessary)
+
+$sudo wipefs --all /dev/sdb
+
+----------------------------------------------------------------------------------------------------------------------
+Add osd on host's
+
+$sudo ceph orch daemon add osd node1:/dev/sdb
+$sudo ceph orch daemon add osd node2:/dev/sdb
+$sudo ceph orch daemon add osd node3:/dev/sdb
+
+----------------------------------------------------------------------------------------------------------------------
+ Enable RGW 
+ 
+$ceph orch apply rgw <name> <count_of_nodes> 
+Example --> $ceph orch apply rgw authin 2
+
+----------------------------------------------------------------------------------------------------------------------
+ Go To Dashboard , Object Gateway , Create s3 Or Swift Buckets & Users .
+
+ ----------------------------------------------------------------------------------------------------------------------
+ Ceph create fs and mds, and set placement groups (version1)
+ Create fs with name volume1
+
+$sudo ceph fs volume create volume1
+
+----------------------------------------------------------------------------------------------------------------------
+ Create 3 mds for fs with name volume1
+ 
+$sudo ceph orch apply mds volume1 3
+ 
+----------------------------------------------------------------------------------------------------------------------
+ Set The Number Of Placement Groups
+ get pg
+
+$ceph osd pool get cephfs.volume1.data pg_num
+$ceph osd pool get cephfs.volume1.meta pgp_num
+ 
+ set pg
+$sudo ceph osd pool set cephfs.volume1.data pg_num 128
+$sudo ceph osd pool set cephfs.volume1.data pgp_num 128
+
+Less than 5 OSDs set pg_num to 128
+Between 5 and 10 OSDs set pg_num to 512
+Between 10 and 50 OSDs set pg_num to 4096
+
+----------------------------------------------------------------------------------------------------------------------
+ List fs
+
+$sudo ceph mds stat
+$sudo ceph fs ls  
+
+----------------------------------------------------------------------------------------------------------------------
+ Ceph create fs and mds(version1)
+ Create fs with name cephfs
+
+$sudo ceph osd pool create cephfs_data 64 64
+$sudo ceph osd pool create cephfs_metadata 64 64
+$sudo ceph fs new cephfs cephfs_metadata cephfs_data
+$sudo ceph orch apply mds cephfs 3
+
+----------------------------------------------------------------------------------------------------------------------
+ Ceph mount cephfs
+ Volume name volume1
+
+$sudo ceph fs authorize volume1 client.user / rw | sudo tee /etc/ceph/ceph.client.user.keyring
+
+----------------------------------------------------------------------------------------------------------------------
+ Mount via sh
+ 
+$sudo mkdir /mnt/cephfs
+$sudo mount -t ceph node3:/ /mnt/cephfs -o name=user,secret=AQDSxDNfzpmkIhAAGyKz2EIqZsaVrXWP0ZNRAQ==
+$cd /mnt/cephfs 
+
+----------------------------------------------------------------------------------------------------------------------
+ Mount via fstab
+ 
+$sudo vi /etc/fstab 
+192.168.56.101,192.168.56.102,192.168.56.103:/     /mnt/cephfs    ceph    name=user,secret=AQDSxDNfzpmkIhAAGyKz2EIqZsaVrXWP0ZNRAQ==,noatime,_netdev    0       2
+
+
+----------------------------------------------------------------------------------------------------------------------
+ You can install s3 browser for use s3 amazon client
+ 
+ useful command : 
+ for get and put objects in object storage use rados command and for edit users use radosgw-admin
+ example : rados -p default.rgw.buckets.data ls - 

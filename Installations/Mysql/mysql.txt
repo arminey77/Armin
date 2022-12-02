@@ -1,0 +1,155 @@
+# first download apt repository config package
+wget https://repo.mysql.com/apt/ubuntu/pool/mysql-apt-config/m/mysql-apt-config/mysql-apt-config_0.8.16-1_all.deb
+sudo dpkg -i mysql-apt-config_0.8.16-1_all.deb
+# then choose the first option (MySQL Server & Cluster) then select mysql-8.0
+
+#to add proxy append (--keyserver-options http-proxy=http://162.223.88.116:443/)
+#sudo apt-key adv --recv-keys --keyserver ha.pool.sks-keyservers.net 5072E1F5
+#sudo apt-key adv --keyserver hkp://keyserver.ubuntu.com:80 --recv 9A2FD067A2E3EF7B
+sudo apt-key adv --recv-keys --keyserver keyserver.ubuntu.com 5072E1F5
+sudo apt-get update
+
+# install mysql and provide a strong password
+sudo apt-get -y install mysql-server mysql-shell
+
+sudo systemctl status mysql
+
+# edit 127.0.1.1 to 127.0.0.1 authindb01 in /etc/hosts
+sudo netplan apply
+
+# open firewall ports
+sudo ufw enable
+sudo ufw allow ssh
+sudo ufw allow proto tcp from any to any port 3306,33060,33061
+
+# edit /etc/mysql/mysql.conf.d/mysqld.cnf
+datadir         = /mnt/mysql/mysql/data
+log-error       = /mnt/mysql/mysql/log/error.log
+
+# update access control in apparmor
+# edit /etc/apparmor.d/usr.sbin.mysqld
+# Allow data dir access
+  /mnt/mysql/mysql/data/ r,
+  /mnt/mysql/mysql/data/** rwk,
+
+# Allow data files dir access
+  /mnt/mysql/mysql/mysql-files/ r,
+  /mnt/mysql/mysql/mysql-files/** rwk,
+
+# Allow keyring dir access
+  /mnt/mysql/mysql/mysql-keyring/ r,
+  /mnt/mysql/mysql/mysql-keyring/** rwk,
+
+# Allow log file access
+  /mnt/mysql/mysql/log/ r,
+  /mnt/mysql/mysql/log/** rw,
+
+# create mysql data and log directories
+sudo mkdir -p /mnt/mysql/mysql/log
+sudo mkdir -p /mnt/mysql/mysql/mysql-keyring
+sudo mkdir -p /mnt/mysql/mysql/mysql-files
+sudo cp -r /var/lib/mysql/ /mnt/mysql/mysql/data/
+sudo chown -R mysql:mysql /mnt/mysql/mysql/
+sudo chmod -R 770 /mnt/mysql/mysql/
+  
+sudo systemctl restart mysql
+
+# start configuration via mysqlsh
+mysqlsh
+
+dba.configureLocalInstance("root@localhost:3306");
+# enter root password
+# then select option 2 (Create a new admin account for InnoDB cluster with minimal required grants)
+# then enter 'authin' as account name (should be similar in all servers)
+# enter yes for other questions
+
+# to exit from shell
+\q
+
+# to add user and grant access
+sudo mysql -u root -p (maybe without -p)
+GRANT ALL PRIVILEGES ON *.* TO 'authin'@'%';
+#to get users list
+SELECT user FROM mysql. user; 
+SHOW GRANTS FOR 'authin';
+
+###########################################
+perform above steps down here on all the servers and then proceed
+###########################################
+
+# perform these commands in primary node 
+mysqlsh
+
+# connect primary node
+shell.connect('authin@authindb01:3306');
+
+# to create cluster (if cluster already created perform 'cluster = dba.getCluster()')
+cluster = dba.createCluster('authin_innodb_cluster');
+
+# to check the cluster status perform:
+cluster.status();
+
+# adding second node
+cluster.addInstance('authin@authindb02:3306');
+# then select yes to save password and 'c' (clone option)
+
+# adding third node in the same way
+cluster.addInstance('authin@authindb03:3306');
+# then select yes to save password and 'c' (clone option)
+
+# check the status of the cluster
+cluster.status();
+
+# to switch to multi-primary
+cluster.switchToMultiPrimaryMode();
+
+# check the status of the cluster
+cluster.status();
+
+#restart mysql cluster when instance is a member of the cluster and the cluster is off.
+shell.connect('authin@authindb01:3306');
+cluster = dba.rebootClusterFromCompleteOutage()
+
+##########################################
+Some useful commands
+##########################################
+# to go back to single primary mode
+cluster.switchToSinglePrimaryMode([instance])
+# to change the master in single primary mode 
+cluster.setPrimaryInstance(instance) 
+
+# to add user and grant access
+sudo mysql -u root -p (maybe without -p)
+CREATE USER 'authin'@'%' IDENTIFIED BY '<some_password>';
+# to change user password -> (ALTER USER authin IDENTIFIED BY 'auth_string';)
+GRANT ALL PRIVILEGES ON *.* TO 'authin'@'%';
+#to get users list
+SELECT user FROM mysql. user; 
+
+# if clustered before changing data directory, previous data should be moved to new data directory
+sudo rm -rf /mnt/mysql/mysql/data
+sudo cp -r /var/lib/mysql /mnt/mysql/mysql/
+sudo mv /mnt/mysql/mysql/mysql /mnt/mysql/mysql/data
+sudo chown -R mysql:mysql /mnt/mysql/mysql/
+sudo chmod -R 770 /mnt/mysql/mysql/
+
+# to uninstall mysql and remove ALL data
+sudo apt-get autoremove --purge mysql-server mysql-client mysql-common mysql-shell mysql-apt-config
+sudo apt-get autoremove mysql-community-client-core
+sudo apt-get autoremove mysql-community-server-core
+sudo rm -rf /var/lib/mysql
+sudo rm -rf /mnt/mysql/mysql/data
+sudo rm -rf /mnt/mysql/mysql/logls
+sudo rm -rf /mnt/mysql/mysql/mysql-keyring
+sudo rm -rf /mnt/mysql/mysql/mysql-files
+sudo rm /etc/apt/sources.list.d/mysql.list
+sudo reboot
+
+#for load keyring plugin edit /etc/mysql/mysql.conf.d/mysqld.cnf
+early-plugin-load = keyring_file.so
+keyring_file_data = /mnt/mysql/mysql-keyring/keyring
+
+#then run this command for enable binlog_encryption
+SET GLOBAL binlog_encryption=ON;
+
+

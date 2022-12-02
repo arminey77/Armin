@@ -1,0 +1,57 @@
+# to list all connected disks
+sudo fdisk -l
+# create physical volume (pv) on disk  
+sudo pvcreate /dev/sdb
+# to verify
+sudo lvmdiskscan -l
+# create volume group
+sudo vgcreate mysql-vg /dev/sdb
+# to rename a volume group name if necessary
+sudo vgrename -v authin-vg mysql-vg
+# to create logical colume in volume group
+sudo lvcreate -l 100%FREE -n mysql-lv mysql-vg
+# to list all volume groups
+sudo vgscan
+# to activate all volume groups
+sudo vgchange -ay
+# crate mount directory
+sudo mkdir /mnt/mysql
+# format logical volume
+sudo mkfs.ext4 /dev/mysql-vg/mysql-lv
+
+# mount logical volume
+sudo mount /dev/mysql-vg/mysql-lv /mnt/mysql/
+
+# to find all lvm symlinks to add to fstab
+ls /dev/mapper/
+
+# OR adding to /etc/fstab
+/dev/mapper/mysql--vg-mysql--lv /mnt/mysql ext4 defaults 0 0
+/dev/mapper/mongodb--vg-mongodb--lv /mnt/mongodb ext4 defaults 0 0
+/dev/mapper/elastic--vg-elastic--lv /mnt/elastic ext4 defaults 0 0
+/dev/mapper/backup--vg-backup--lv /mnt/backup ext4 defaults 0 0
+
+
+# then reboot and to check mount status
+sudo lsblk
+
+#Increase the size of lvm disk
+sudo lvresize -L +5G --resizefs ubuntu-vg/ubuntu-lv
+
+#Reducing Logical Volume (LVM)
+#Note: With these commands, only empty partitions can be resized.
+sudo lvs
+sudo df -h
+sudo umount -v <lvm_Mounted_on_path>
+#Then check for the file-system error using following command.
+sudo e2fsck -ff <lvm_Filesystem_path>
+#Note: Must pass in every 5 steps of file-system check if not there might be some issue with your file-system.
+#reduce the file-system.
+sudo resize2fs <lvm_filesystem_path> <size>GB
+#Reduce the Logical volume using GB size.
+sudo lvreduce -L -<size>G <lvm_filesystem_path>
+sudo lvdisplay <volume_groupe_name>
+
+
+
+

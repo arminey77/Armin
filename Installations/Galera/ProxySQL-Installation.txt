@@ -1,0 +1,7 @@
+1- Upload Deployment & ConfigMap File To Your Server . 
+
+2- Run This Command To Deploy Your ConfigMap : 
+$  kubectl create configmap -n dev proxysql-configmap --from-file=ProxySQL-ConfigMap.cnf
+
+3- Deploy ProxySQL Deployment .
+$ kubectl apply -f Proxysql.yml -n dev

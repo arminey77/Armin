@@ -1,0 +1,42 @@
+--------------------------------------------------------------------
+Install Nginx from source and recompile (Ubunutu 20.04)
+--------------------------------------------------------------------
+
+#add new module and recompile nginx
+cd /opt
+sudo apt-get build-dep nginx
+sudo apt-get source nginx
+
+#Download one or more modules you want to compile in (we’ll use the push-stream module).
+cd /opt/nginx-1.5.10/debian/modules
+git clone https://github.com/wandenberg/nginx-push-stream-module.git
+
+#Edit /opt/nginx-1.5.10/debian/rules, find the list of compiler arguments and 
+#additional modules, and under ‘full’, add your new modules:
+[...] 
+--with-http_sub_module 
+--with-http_xslt_module 
+--with-ipv6 
+--with-mail 
+--with-mail_ssl_module 
+--add-module=$(MODULESDIR)/nginx-auth-pam
+--add-module=$(MODULESDIR)/nginx-dav-ext-module
+--add-module=$(MODULESDIR)/nginx-echo
+--add-module=$(MODULESDIR)/nginx-upstream-fair
+--add-module=$(MODULESDIR)/ngx_http_substitutions_filter_module
+# add your new modules
+--add-module=$(MODULESDIR)/nginx-push-stream-module
+
+#Recompile Nginx
+cd /opt/nginx-1.5.10
+dpkg-buildpackage -uc -b
+
+#After everything has compiled, you’ll see the new *.deb packages in the parent directory:
+ls -al /opt
+
+sudo apt-get remove nginx
+
+#Run nginx -V to ensure the Nginx binary shows your new module:
+
+#Finally, you want to block further updates from apt-get, or else it’ll just overwrite your custom Nginx packages.
+sudo apt-mark hold nginx-full

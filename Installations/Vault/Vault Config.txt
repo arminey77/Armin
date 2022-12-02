@@ -1,0 +1,44 @@
+1-create Vault namespace
+kubectl create namespace vault
+
+2-Create the service account and ClusterRolebinding in cluster (namespace vault) - Vault RBAC Setup
+kubectl apply -f Vault-rbac.yml
+
+3-Creating Vault ConfigMaps (namespace vault)
+kubectl apply -f Vault-ConfigMap.yml
+
+4-Deploy Vault Services (namespace vault)
+kubectl apply -f Vault-Services.yml
+
+5-Deploy Vault StatefulSet (namespace vault)
+kubectl apply -f Vault-StaefulSet.yml
+
+6-Create directory
+sudo mkdir -p /mnt/vault/data
+
+7-Create Vault PersistentVolume
+kubectl apply -f Vault-PersistentVolume.yml
+
+8-Change Permision for vault volume mounted directory
+sudo chmod -R 777 /mnt/vault/
+sudo chown -R systemd-network:systemd-network /mnt/vault/
+
+9-install jq package
+sudo apt-get install jq
+
+10-Unseal & Initialise Vault
+sudo mkdir /home/authin/vault-secret
+sudo touch /home/authin/vault-secret/keys.json
+sudo chown -R /home/authin/vault-secret
+kubectl exec vault-0 -- vault operator init -key-shares=1 -key-threshold=1 -format=json > keys.json
+VAULT_UNSEAL_KEY=$(cat keys.json | jq -r ".unseal_keys_b64[]")
+echo $VAULT_UNSEAL_KEY
+VAULT_ROOT_KEY=$(cat keys.json | jq -r ".root_token")
+echo $VAULT_ROOT_KEY
+kubectl exec vault-0 -- vault operator unseal $VAULT_UNSEAL_KEY
+
+11-Login & Access Vault UI
+kubectl exec vault-0 -- vault login $VAULT_ROOT_KEY
+
+#Save the token as you will need it to log in to the vault UI
+login url: http://<server_IP>:32000

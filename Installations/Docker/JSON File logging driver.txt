@@ -1,0 +1,19 @@
+# Put This Config in daemon.json File 
+
+{
+  "log-driver": "json-file",
+  "log-opts": {
+    "max-size": "100m",
+    "max-file": "3",
+    "compress": "true"
+  }
+}
+
+
+
+
+-------------------------------------------
+
+# max-size : The maximum size of the log before it is rolled. A positive integer plus a modifier representing the unit of measure (k, m, or g). Defaults to -1 (unlimited).
+# max-file : The maximum number of log files that can be present. If rolling the logs creates excess files, the oldest file is removed. Only effective when max-size is also set. A positive integer. Defaults to 1.
+# compress : Toggles compression for rotated logs. Default is disabled.	
