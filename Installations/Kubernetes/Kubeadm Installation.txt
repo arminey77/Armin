@@ -1,0 +1,225 @@
+*********************************************************************
+                       #for-master-node
+*********************************************************************
+
+sudo swapoff -a
+sudo swapoff -a; sudo sed -i '/swap/d' /etc/fstab
+sudo ufw disable
+sudo apt-get update
+sudo apt-get install selinux-basics selinux-policy-default auditd
+sudo setenforce 0
+
+**********************************************************************
+
+sudo modprobe overlay
+sudo modprobe br_netfilter
+
+**********************************************************************
+
+cat <<EOF | sudo tee /etc/modules-load.d/k8s.conf
+br_netfilter
+overlay
+EOF
+
+**********************************************************************
+
+cat <<EOF | sudo tee /etc/sysctl.d/k8s.conf
+net.bridge.bridge-nf-call-iptables  = 1
+net.bridge.bridge-nf-call-ip6tables = 1
+net.ipv4.ip_forward                 = 1
+EOF
+
+**********************************************************************
+
+sudo apt install apt-transport-https ca-certificates curl gnupg lsb-release
+
+sudo apt-get remove docker docker-engine docker.io 
+************************** [First Way] Docker-CRI  ***********************************
+sudo apt install docker.io
+sudo apt install git wget curl
+VER=$(curl -s https://api.github.com/repos/Mirantis/cri-dockerd/releases/latest|grep tag_name | cut -d '"' -f 4|sed 's/v//g')
+echo $VER
+
+wget https://github.com/Mirantis/cri-dockerd/releases/download/v${VER}/cri-dockerd-${VER}.amd64.tgz
+tar xvf cri-dockerd-${VER}.amd64.tgz
+sudo mv cri-dockerd/cri-dockerd /usr/local/bin/
+cri-dockerd --version
+wget https://raw.githubusercontent.com/Mirantis/cri-dockerd/master/packaging/systemd/cri-docker.service
+wget https://raw.githubusercontent.com/Mirantis/cri-dockerd/master/packaging/systemd/cri-docker.socket
+sudo mv cri-docker.socket cri-docker.service /etc/systemd/system/
+sudo sed -i -e 's,/usr/bin/cri-dockerd,/usr/local/bin/cri-dockerd,' /etc/systemd/system/cri-docker.service
+sudo systemctl daemon-reload
+sudo systemctl enable cri-docker.service
+
+************************** [Second Way] Docker-CRI  ***********************************
+
+sudo apt-get update && sudo apt-get -y install golang-go
+go version
+
+
+git clone https://github.com/Mirantis/cri-dockerd.git
+cd cri-dockerd
+ls
+mkdir bin
+cd backend
+#build-Go-project
+go get && go build -o ../bin/cri-dockerd
+
+**********************************************************************
+
+sudo sed -i -e 's,/usr/bin/cri-dockerd,/usr/local/bin/cri-dockerd,' /etc/systemd/system/cri-docker.service
+sudo systemctl status cri-docker.socket
+sudo systemctl enable cri-docker.service
+sudo systemctl enable --now cri-docker.socket
+sudo systemctl status cri-docker.socket
+sudo systemctl status docker
+sudo apt update
+
+**********************************************************************kubernetes****************************************************************
+
+sudo curl -fsSLo /usr/share/keyrings/kubernetes-archive-keyring.gpg https://packages.cloud.google.com/apt/doc/apt-key.gpg
+echo "deb [signed-by=/usr/share/keyrings/kubernetes-archive-keyring.gpg] https://apt.kubernetes.io/ kubernetes-xenial main" | sudo tee /etc/apt/sources.list.d/kubernetes.list
+
+sudo touch /etc/apt/apt.conf.d/99verify-peer.conf \
+&& sudo echo >>sudo /etc/apt/apt.conf.d/99verify-peer.conf "Acquire { https::Verify-Peer false }"
+
+sudo apt-get update
+sudo apt install -y kubeadm=1.24.0-00  kubelet=1.24.0-00  kubectl=1.24.0-00
+sudo apt-mark hold kubelet kubeadm kubectl 
+sudo systemctl enable --now kubelet
+
+KUBELET_KUBEADM_ARGS="--network-plugin=cni --pod-infra-container-image=k8s.gcr.io/pause:3.2 --container-runtime=remote --container-runtime-endpoint=unix:///run/cri-dockerd.sock"
+
+sudo systemctl start kubelet
+sudo systemctl daemon-reload
+
+sudo kubeadm config images pull --cri-socket /run/cri-dockerd.sock
+
+echo 1 > /proc/sys/net/ipv4/ip_forward
+#INIT
+sudo kubeadm init  --apiserver-advertise-address=192.168.202.144  --pod-network-cidr=10.244.0.0/16  --cri-socket /run/cri-dockerd.sock
+
+**********************************************************************
+
+mkdir -p $HOME/.kube
+sudo cp -i /etc/kubernetes/admin.conf $HOME/.kube/config
+sudo chown $(id -u):$(id -g) $HOME/.kube/config
+
+**********************************************************************
+
+#install-flunnel
+kubectl apply -f https://raw.githubusercontent.com/flannel-io/flannel/master/Documentation/kube-flannel.yml
+
+*********************************************************************
+                       #for-worker-node
+*********************************************************************
+
+sudo swapoff -a
+sudo swapoff -a;sudo sed -i '/swap/d' /etc/fstab
+sudo ufw disable
+
+**********************************************************************
+
+sudo apt-get update
+sudo apt-get install selinux-basics selinux-policy-default auditd
+sudo setenforce 0
+
+**********************************************************************
+
+sudo modprobe overlay
+sudo modprobe br_netfilter
+
+**********************************************************************
+
+cat <<EOF | sudo tee /etc/modules-load.d/k8s.conf
+br_netfilter
+overlay
+EOF
+
+**********************************************************************
+
+# sysctl params required by setup, params persist across reboots
+cat <<EOF | sudo tee /etc/sysctl.d/k8s.conf
+net.bridge.bridge-nf-call-iptables  = 1
+net.bridge.bridge-nf-call-ip6tables = 1
+net.ipv4.ip_forward                 = 1
+EOF
+
+**********************************************************************
+
+sudo apt install apt-transport-https ca-certificates curl gnupg lsb-release
+
+sudo apt-get remove docker docker-engine docker.io 
+
+===================================Docker-CRI=========================
+
+sudo apt install docker.io
+sudo apt install git wget curl
+VER=$(curl -s https://api.github.com/repos/Mirantis/cri-dockerd/releases/latest|grep tag_name | cut -d '"' -f 4|sed 's/v//g')
+echo $VER
+
+wget https://github.com/Mirantis/cri-dockerd/releases/download/v${VER}/cri-dockerd-${VER}.amd64.tgz
+tar xvf cri-dockerd-${VER}.amd64.tgz
+sudo mv cri-dockerd/cri-dockerd /usr/local/bin/
+cri-dockerd --version
+wget https://raw.githubusercontent.com/Mirantis/cri-dockerd/master/packaging/systemd/cri-docker.service
+wget https://raw.githubusercontent.com/Mirantis/cri-dockerd/master/packaging/systemd/cri-docker.socket
+sudo mv cri-docker.socket cri-docker.service /etc/systemd/system/
+sudo sed -i -e 's,/usr/bin/cri-dockerd,/usr/local/bin/cri-dockerd,' /etc/systemd/system/cri-docker.service
+sudo systemctl daemon-reload
+sudo systemctl enable cri-docker.service
+
+************************** [Second Way] Docker-CRI  ***********************************
+
+sudo apt-get update && sudo apt-get -y install golang-go
+go version
+
+
+git clone https://github.com/Mirantis/cri-dockerd.git
+cd cri-dockerd
+ls
+mkdir bin
+cd backend
+#build-Go-project
+go get && go build -o ../bin/cri-dockerd
+
+sudo sed -i -e 's,/usr/bin/cri-dockerd,/usr/local/bin/cri-dockerd,' /etc/systemd/system/cri-docker.service
+systemctl status cri-docker.socket
+sudo systemctl enable cri-docker.service
+sudo systemctl enable --now cri-docker.socket
+systemctl status cri-docker.socket
+systemctl status docker
+
+
+sudo apt update
+
+********************************************************************** install-kubernetes ****************************************************************
+
+sudo curl -fsSLo /usr/share/keyrings/kubernetes-archive-keyring.gpg https://packages.cloud.google.com/apt/doc/apt-key.gpg
+echo "deb [signed-by=/usr/share/keyrings/kubernetes-archive-keyring.gpg] https://apt.kubernetes.io/ kubernetes-xenial main" | sudo tee /etc/apt/sources.list.d/kubernetes.list
+
+#ignore-cert-error-in-apt-update
+sudo touch /etc/apt/apt.conf.d/99verify-peer.conf \
+&& sudo echo >>sudo /etc/apt/apt.conf.d/99verify-peer.conf "Acquire { https::Verify-Peer false }"
+
+sudo apt-get update
+sudo apt install -y kubeadm=1.24.0-00  kubelet=1.24.0-00  kubectl=1.24.0-00
+sudo apt-mark hold kubelet kubeadm kubectl 
+sudo systemctl enable --now kubelet
+
+KUBELET_KUBEADM_ARGS="--network-plugin=cni --pod-infra-container-image=k8s.gcr.io/pause:3.2 --container-runtime=remote --container-runtime-endpoint=unix:///run/cri-dockerd.sock"
+
+sudo systemctl start kubelet
+sudo systemctl daemon-reload
+
+sudo kubeadm config images pull --cri-socket /run/cri-dockerd.sock
+
+kubeadm join 192.168.202.144:6443 --token avrtlv.2stxr61er86qm7ny --discovery-token-ca-cert-hash sha256:cc311a7d807cc8dee5a359477b8144883036e389db287dce10c49acb145dec98 --cri-socket /run/cri-dockerd.sock
+
+***important***for each worker again create token for master
+
+####Link
+https://computingforgeeks.com/install-mirantis-cri-dockerd-as-docker-engine-shim-for-kubernetes/
+
+
+
