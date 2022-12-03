@@ -1,0 +1,12 @@
+sudo apt install resolvconf
+sudo systemctl start resolvconf.service
+sudo systemctl enable resolvconf.service
+#add-shecan:
+sudo vim /etc/resolvconf/resolv.conf.d/head
+nameserver 185.51.200.2
+nameserver 178.22.122.100
+search localdomain
+
+sudo resolvconf -u
+
+
