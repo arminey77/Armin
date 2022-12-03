@@ -1,3 +1,3 @@
 # Armin
-My DOcs
+My Docs
 This Repo Is For My Installation Tools
