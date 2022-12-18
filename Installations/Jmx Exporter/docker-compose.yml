@@ -1,0 +1,8 @@
+version: '3.3'
+services:
+    jmx:
+        ports:
+            - '8088:8088'
+        environment:
+            - 'JAVA_OPTS=-javaagent:/jmx_prometheus_javaagent-0.17.2.jar=8088:/prometheus-jmx-config.yaml'
+        image: 'ccr.ccs.tencentyun.com/imroc/tomcat:jdk8'
