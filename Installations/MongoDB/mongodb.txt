@@ -94,4 +94,3 @@ rs.add("192.168.8.139:27017")
 #arbitarynode
 rs.add("192.168.8.140:27017", true)
 rs.status()
-

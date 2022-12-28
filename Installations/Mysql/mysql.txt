@@ -151,5 +151,3 @@ keyring_file_data = /mnt/mysql/mysql-keyring/keyring
 
 #then run this command for enable binlog_encryption
 SET GLOBAL binlog_encryption=ON;
-
-

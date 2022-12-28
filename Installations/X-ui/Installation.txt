@@ -10,3 +10,5 @@ docker run -itd --network=host \
     enwaiax/x-ui:latest
 	
 # Open Browser , IP:54321	
+# Cert Configure 
+certbot certonly --standalone --preferred-challenges http --agree-tos --email -d your-domain

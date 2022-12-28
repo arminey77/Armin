@@ -51,7 +51,3 @@ sudo resize2fs <lvm_filesystem_path> <size>GB
 #Reduce the Logical volume using GB size.
 sudo lvreduce -L -<size>G <lvm_filesystem_path>
 sudo lvdisplay <volume_groupe_name>
-
-
-
-

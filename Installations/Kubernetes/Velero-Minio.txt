@@ -156,5 +156,3 @@ Step 10: Create backup with TTL( Time to Live):
 velero backup create secondbackup  --include-namespaces default --ttl 2h
 velero backup describe secondbackup
 velero backup get
-
-

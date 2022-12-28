@@ -8,5 +8,3 @@ nameserver 178.22.122.100
 search localdomain
 
 sudo resolvconf -u
-
-

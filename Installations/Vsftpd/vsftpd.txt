@@ -41,4 +41,3 @@ sudo ufw allow proto tcp from any to any port 21,40000:50000
 
 # to test vsftpd
 ftp authindb03
-

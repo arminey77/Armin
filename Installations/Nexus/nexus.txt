@@ -111,4 +111,3 @@ for image in $(ls); sudo docker load -i $image; done
 for image in $(sudo docker images --format {{.Repository}}:{{.Tag}} | grep prod); do sudo docker tag $image authinmgmt.iums.ac.ir:5001/$image; done
 # to push batch images
 for image in $(sudo docker images --format {{.Repository}}:{{.Tag}} | grep prod | grep iums); do sudo docker push $image; done
-

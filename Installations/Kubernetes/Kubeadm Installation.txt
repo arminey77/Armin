@@ -220,6 +220,3 @@ kubeadm join 192.168.202.144:6443 --token avrtlv.2stxr61er86qm7ny --discovery-to
 
 ####Link
 https://computingforgeeks.com/install-mirantis-cri-dockerd-as-docker-engine-shim-for-kubernetes/
-
-
-

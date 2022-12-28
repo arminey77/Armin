@@ -202,5 +202,3 @@ sudo yum install proxysql mysql-client
 
 Step 7: Configure ProxySQL on Ubuntu 20.04
 sudo systemctl enable --now proxysql
-
-
