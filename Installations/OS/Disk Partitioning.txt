@@ -36,7 +36,9 @@ ls /dev/mapper/
 sudo lsblk
 
 #Increase the size of lvm disk
-sudo lvresize -L +5G --resizefs ubuntu-vg/ubuntu-lv
+sudo lvm lvextend -l +100%FREE /dev/ubuntu-vg/ubuntu-lv
+sudo resize2fs -p /dev/mapper/ubuntu--vg-ubuntu--lv
+
 
 #Reducing Logical Volume (LVM)
 #Note: With these commands, only empty partitions can be resized.
